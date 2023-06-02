@@ -225,23 +225,16 @@ fn main() -> Result<()> {
 
 fn get_some_city(geo: &City, lang_code: &str) -> Option<String> {
     if let Some(city) = geo.city.as_ref() {
-        city.names
-            .as_ref()
-            // TODO:    better than unwrap() !
-            //          Maybe don't always take `en`.
-            .map(|map| {
-                //eprintln!("{:#?}", map.key());
-                map.get(lang_code).unwrap().to_string()
-            })
+        city.names.as_ref().and_then(|name| {
+            name.get(lang_code).map(|name| name.to_string())
+        })
     } else {
         None
     }
 }
 
 fn get_some_region_iso(geo: &City, last: bool) -> Option<String> {
-    let subdivs = geo.subdivisions.as_ref();
-
-    subdivs.and_then(|subdiv| {
+    geo.subdivisions.as_ref().and_then(|subdiv| {
         let subdiv = if last { subdiv.last() } else { subdiv.first() };
         match subdiv {
             Some(subdiv) => subdiv.iso_code.map(|code| code.to_string()),
