@@ -2,8 +2,9 @@
 
 use std::{default::Default, fs, net::IpAddr, path::PathBuf};
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use clap::{command, Arg, ArgAction, ArgGroup, Id};
+use custom_error::custom_error;
 use dns_lookup::lookup_addr;
 use geoip2::{City, Reader, ASN};
 use serde::Serialize;
@@ -25,7 +26,7 @@ struct IpInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
     region_iso: Option<String>, // "ZH"
     #[serde(skip_serializing_if = "Option::is_none")]
-    country_iso: Option<String>, // "CH"
+    country: Option<String>, // "CH"
     #[serde(skip_serializing_if = "Option::is_none")]
     long: Option<f64>, // 47.3667
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -54,6 +55,11 @@ impl Default for IpBogon {
             bogon: true,
         }
     }
+}
+
+custom_error! {MyError
+    Required = "required",
+    NoAgMatch = "no ArgGroup match"
 }
 
 fn main() -> Result<()> {
@@ -106,7 +112,7 @@ fn main() -> Result<()> {
         .get_matches();
 
     // Get DB directory.
-    let Some(dir) = matches.get_one::<PathBuf>("mmdbdir") else { panic!("required") };
+    let Some(dir) = matches.get_one::<PathBuf>("mmdbdir") else { bail!(MyError::Required) };
     let dir = dir.to_string_lossy();
 
     // Initialize City DB reader.
@@ -137,9 +143,9 @@ fn main() -> Result<()> {
             .for_each(drop); // As we just want to print, we need no result.
     } else if matches.get_one::<Id>("lookup").is_some() {
         // Implementation details for lookup
-        let Some(ipaddr) = matches.get_one::<IpAddr>("ipaddr") else { panic!("required") };
-        let Some(lang_code) = matches.get_one::<String>("langcode") else { panic!("required") };
-        let Some(last_subdiv) = matches.get_one::<bool>("last_subdiv") else { panic!("required") };
+        let Some(ipaddr) = matches.get_one::<IpAddr>("ipaddr") else { bail!(MyError::Required) };
+        let Some(lang_code) = matches.get_one::<String>("langcode") else { bail!(MyError::Required) };
+        let Some(last_subdiv) = matches.get_one::<bool>("last_subdiv") else { bail!(MyError::Required) };
 
         /*
          * If not globally routable, we make it real quick.
@@ -205,11 +211,11 @@ fn main() -> Result<()> {
             "{}",
             serde_json::to_string_pretty(&IpInfo {
                 ip: ipaddr.to_string(),
-                hostname: lookup_addr(&ipaddr).ok(),
+                hostname: lookup_addr(ipaddr).ok(),
                 city: get_some_city(&geo, lang_code),
-                region: get_some_region_name(&geo, lang_code, *last_subdiv),
+                region: get_some_region(&geo, lang_code, *last_subdiv),
                 region_iso: get_some_region_iso(&geo, *last_subdiv),
-                country_iso: get_some_country_iso(&geo),
+                country: get_some_country_iso(&geo),
                 long,
                 lat,
                 osm,
@@ -219,8 +225,7 @@ fn main() -> Result<()> {
             })?
         );
     } else {
-        panic!("fresh out of arg group matches") // Never happens, unless cmdl interface is
-                                                 // changed.
+        bail!(MyError::NoAgMatch) // Never happens, unless cmdl interface is changed.
     }
 
     Ok(())
@@ -236,7 +241,7 @@ fn get_some_city(geo: &City, lang_code: &str) -> Option<String> {
     }
 }
 
-fn get_some_region_name(geo: &City, lang_code: &str, last: bool) -> Option<String> {
+fn get_some_region(geo: &City, lang_code: &str, last: bool) -> Option<String> {
     geo.subdivisions.as_ref().and_then(|subdiv| {
         let subdiv = if last { subdiv.last() } else { subdiv.first() };
         match subdiv {
