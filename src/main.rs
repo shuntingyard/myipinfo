@@ -21,6 +21,8 @@ struct IpInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
     city: Option<String>, // "Zürich"
     #[serde(skip_serializing_if = "Option::is_none")]
+    region: Option<String>, // "Zürich"
+    #[serde(skip_serializing_if = "Option::is_none")]
     region_iso: Option<String>, // "ZH"
     #[serde(skip_serializing_if = "Option::is_none")]
     country_iso: Option<String>, // "CH"
@@ -205,6 +207,7 @@ fn main() -> Result<()> {
                 ip: ipaddr.to_string(),
                 hostname: lookup_addr(&ipaddr).ok(),
                 city: get_some_city(&geo, lang_code),
+                region: get_some_region_name(&geo, lang_code, *last_subdiv),
                 region_iso: get_some_region_iso(&geo, *last_subdiv),
                 country_iso: get_some_country_iso(&geo),
                 long,
@@ -225,12 +228,25 @@ fn main() -> Result<()> {
 
 fn get_some_city(geo: &City, lang_code: &str) -> Option<String> {
     if let Some(city) = geo.city.as_ref() {
-        city.names.as_ref().and_then(|name| {
-            name.get(lang_code).map(|name| name.to_string())
-        })
+        city.names
+            .as_ref()
+            .and_then(|name| name.get(lang_code).map(|name| name.to_string()))
     } else {
         None
     }
+}
+
+fn get_some_region_name(geo: &City, lang_code: &str, last: bool) -> Option<String> {
+    geo.subdivisions.as_ref().and_then(|subdiv| {
+        let subdiv = if last { subdiv.last() } else { subdiv.first() };
+        match subdiv {
+            Some(subdiv) => subdiv
+                .names
+                .as_ref()
+                .and_then(|name| name.get(lang_code).map(|name| name.to_string())),
+            _ => None,
+        }
+    })
 }
 
 fn get_some_region_iso(geo: &City, last: bool) -> Option<String> {
