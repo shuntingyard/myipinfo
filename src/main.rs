@@ -87,8 +87,8 @@ fn main() -> Result<()> {
         )
         .arg(
             Arg::new("last_subdiv")
-                .long("last")
-                .help("For region details read last subdivision rather than first")
+                .long("rzoom")
+                .help("Region zoom-in (read last mmdb subdivision rather than first)")
                 .action(ArgAction::SetTrue),
         )
         .next_help_heading("Metainfo only") // Structure help in a slightly clearer way.
