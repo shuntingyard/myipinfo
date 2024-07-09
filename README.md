@@ -14,4 +14,5 @@ or make sure Docker is working on your machine, add [cross](https://github.com/c
 ## TODO
 
 - [ ] Calculate zoom optimum for OpenStreetMap URL using MaxMind’s accuracy radius.
-- [ ] Investigate the interesting bug on `armv7-unknown-linux-gnueabihf`.  
+- [ ] Investigate the interesting bug on `armv7-unknown-linux-gnueabihf`.
+- [ ] Treat cases with no ASN entry, e.g. `1.2.3.4`
